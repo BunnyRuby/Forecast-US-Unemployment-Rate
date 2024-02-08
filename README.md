@@ -1,1 +1,2 @@
-# Forecast-US-Unemployment-Rate
+This project aims to do Modeling and forecasting the unemployment rate in California.
+Several forecasting models have been applied, and their performances have been evaluated on both the in-sample test and the out-of-sample test. Based on the in-sample forecast assessment, RMSE, MAE and MASE values suggested that ARIMA (2,0,2) (1,0,2) [12] outperforms the other two models. For the out-of-sample forecast assessment, the results of the model accuracy test double confirm the conclusion. 
