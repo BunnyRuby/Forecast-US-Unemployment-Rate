@@ -1,0 +1,327 @@
+---
+title: "Unempoyment rate for California between 1976 and 2022"
+author: "Xintong Chen"
+date: "2022-11-05"
+output: html_document
+---
+
+### Group Member: Xinotng (Ruby) Chen
+
+```{r}
+library(tseries)
+library(forecast)
+library(ggfortify)
+library(ggplot2)
+library(lmtest)
+library(ggpubr)
+library(knitr)
+library(stargazer)
+library(dplyr)
+library(ggpubr)
+library(TSstudio)
+library(urca)
+```
+
+```{r}
+set.seed(521)
+data <- read.csv('CAUR.csv')
+data[,1:2]
+```
+
+```{r}
+summary(data)
+```
+
+```{r}
+sd(data$CAUR)
+```
+
+```{r}
+data.ts <- ts(data$CAUR,start=c(1976, 1), frequency=12)
+```
+
+```{r}
+start(data.ts)
+end(data.ts)
+frequency(data.ts)
+```
+
+```{r}
+plot(data.ts)
+```
+
+```{r}
+# plot ACF
+ggAcf(data.ts)
+```
+
+```{r}
+# plot PACF
+ggPacf(data.ts)
+```
+
+```{r}
+original_data <- data[1:529,]
+original_data
+```
+
+```{r}
+original_ts <- ts(original_data$CAUR,start=c(1976, 1), frequency=12)
+start(original_ts)
+end(original_ts)
+frequency(original_ts)
+```
+
+```{r}
+autoplot(original_ts) + ylab("Unemployment Rate") + xlab("Years")
+```
+
+
+
+```{r,echo=FALSE,fig.width=8,fig.height=6,message=FALSE}
+# plot ACF
+ggAcf(original_ts)
+ggsave(
+  filename = "original_ts_acf.png", # 保存的文件名称。通过后缀来决定生成什么格式的图片
+  width = 8,             # 宽
+  height = 6,            # 高
+  units = "in",          # 单位
+  dpi = 300              # 分辨率DPI
+)
+```
+
+```{r,echo=FALSE,fig.width=8,fig.height=6,message=FALSE}
+# plot PACF
+ggPacf(original_ts)
+ggsave(
+  filename = "original_ts_pacf.png", # 保存的文件名称。通过后缀来决定生成什么格式的图片
+  width = 8,             # 宽
+  height = 6,            # 高
+  units = "in",          # 单位
+  dpi = 300              # 分辨率DPI
+)
+```
+
+Remove Seasonality
+
+```{r}
+adf.test(original_ts,k=8)
+```
+
+ACF plot decays to zero gradualy, which means the data is non-stationary.
+
+the data has a trend, seasonal component, apparant shape change(we delete the data -- 2020)
+
+```{r}
+firstdiff <- diff(original_data[,"CAUR"], diff = 1)
+```
+
+```{r, echo=FALSE,fig.width=8,fig.height=6,message=FALSE}
+#ACF
+ggAcf(firstdiff)
+ggsave(
+  filename = "firstdiff_ts_acf.png",
+  width = 8,             # 宽
+  height = 6,            # 高
+  units = "in",          # 单位
+  dpi = 300              # 分辨率DPI
+)
+```
+
+```{r, echo=FALSE,fig.width=8,fig.height=6,message=FALSE}
+#ACF
+ggPacf(firstdiff)
+ggsave(
+  filename = "firstdiff_ts_pacf.png",
+  width = 8,             # 宽
+  height = 6,            # 高
+  units = "in",          # 单位
+  dpi = 300              # 分辨率DPI
+)
+```
+
+```{r}
+adf.test(firstdiff,k=8)
+```
+
+```{r}
+seconddiff <- diff(firstdiff, diff = 1)
+```
+
+```{r, echo=FALSE,fig.width=8,fig.height=6,message=FALSE}
+#ACF
+ggAcf(seconddiff)
+ggsave(
+  filename = "seconddiff_ts_acf.png",
+  width = 8,             # 宽
+  height = 6,            # 高
+  units = "in",          # 单位
+  dpi = 300              # 分辨率DPI
+)
+```
+
+```{r, echo=FALSE,fig.width=8,fig.height=6,message=FALSE}
+#ACF
+ggPacf(seconddiff)
+ggsave(
+  filename = "seconddiff_ts_pacf.png",
+  width = 8,             # 宽
+  height = 6,            # 高
+  units = "in",          # 单位
+  dpi = 300              # 分辨率DPI
+)
+```
+
+```{r}
+adf.test(seconddiff,k=8)
+```
+
+```{r, echo=FALSE,fig.width=8,fig.height=6,message=FALSE}
+# use differencing to remove seasonal component
+# difference(t) = observation(t) - observation(t-1)
+original_ts %>% diff() %>% ggtsdisplay()
+```
+
+```{r, echo=FALSE,fig.width=8,fig.height=6,message=FALSE}
+# use differencing to remove seasonal component
+# difference(t) = observation(t) - observation(t-1)
+original_ts %>% diff() %>% diff() %>% ggtsdisplay()
+```
+
+According to ACF: non-seasonality q = 2, seasonality q = 1
+According to PACF: non-seasonality p = 1, seasonality p = 2
+difference: non-seasonality d = 2, seasonality p = 0
+
+the data is stationary after differencing.
+
+Using ARIMA(1,1,2)(1,0,0)[12]
+
+```{r}
+original_ts %>%
+  Arima(order=c(1,2,2),seasonal=c(1,0,0)) %>%
+  residuals() %>%
+  ggtsdisplay()
+```
+
+```{r}
+original_ts %>%
+  Arima(order=c(1,1,2),seasonal=c(1,0,0)) %>%
+  residuals() %>%
+  ggtsdisplay()
+```
+
+```{r}
+original_ts %>%
+  Arima(order=c(2,0,0),seasonal=c(1,1,0)) %>%
+  residuals() %>%
+  ggtsdisplay()
+```
+
+```{r}
+fit1 <- Arima(original_ts, order=c(1,2,2),seasonal=c(1,0,0))
+summary(fit1)
+coeftest(fit1)
+confint(fit1)
+```
+
+```{r,echo=FALSE}
+## Check autocorrelation in residuals
+Box.test(fit1$resid, type="Ljung-Box")
+```
+
+```{r}
+fit2 <- Arima(original_ts, order=c(2,1,0),seasonal=c(1,0,0))
+summary(fit2)
+coeftest(fit2)
+confint(fit2)
+```
+
+```{r,echo=FALSE}
+## Check autocorrelation in residuals
+Box.test(fit2$resid, type="Ljung-Box")
+```
+
+
+
+```{r}
+fit2 %>% forecast(h=24) %>% autoplot()
+```
+
+
+```{r}
+model_auto <- auto.arima(original_ts)
+summary(model_auto)
+coeftest(model_auto)
+confint(model_auto)
+```
+
+```{r,echo=FALSE}
+## Check autocorrelation in residuals
+Box.test(model_auto$resid, type="Ljung-Box")
+```
+
+
+```{r}
+model_auto %>% forecast(h=24) %>% autoplot
+```
+
+
+```{r}
+testing <- data[530:561,]
+test_ts <- ts(testing$CAUR,start=c(2020, 2), frequency=12)
+start(test_ts)
+end(test_ts)
+frequency(test_ts)
+```
+
+```{r}
+#In-sample Forecast
+AutoArimaForecast <- forecast(model_auto,level=c(95),h=24)
+test_forecast(actual=original,forecast.obj=AutoArimaForecast,test=testing)
+```
+
+```{r}
+accuracy(forecast(fit1, h=24),test_ts)
+```
+
+```{r}
+accuracy(forecast(fit2, h=24),test_ts)
+```
+
+```{r}
+accuracy(forecast(model_auto, h=24),test_ts)
+```
+
+
+
+
+```{r}
+#Fit the whole data
+newfitwhole <- Arima(data.ts, model=model_auto)
+autoplot(ts.union(data.ts,fitted(newfitwhole)),facets = FALSE)+
+ scale_color_manual(labels = c("Actual", "Forecasted"),
+                    values=c("black", "red")) +
+ aes(linetype = series,
+     size = series) +
+ scale_linetype_manual(labels = c("Actual", "Forecasted"),
+                       values = c(1, 4)) +
+ scale_size_manual(labels = c("Actual", "Forecasted"),
+                   values = c(2, 2))
+```
+
+
+```{r}
+#Fit the whole data
+newfitwhole <- Arima(data.ts, model=fit2)
+autoplot(ts.union(data.ts,fitted(newfitwhole)),facets = FALSE)+
+ scale_color_manual(labels = c("Actual", "Forecasted"),
+                    values=c("black", "red")) +
+ aes(linetype = series,
+     size = series) +
+ scale_linetype_manual(labels = c("Actual", "Forecasted"),
+                       values = c(1, 4)) +
+ scale_size_manual(labels = c("Actual", "Forecasted"),
+                   values = c(2, 2))
+```
+
+
